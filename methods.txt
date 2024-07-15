@@ -1,0 +1,41 @@
+Experimentation on jupyternotebook : 
+
+dataset : 10 normal WSI + 10 tumor WSI (w/ annotations)
+
+Preprocessing :
+    - Normal WSI:
+        - tissue extraction
+            - OTSU on Hue and Sat channel (HSV image)
+            - creation of bounding boxes (tissue)
+        - Patch extraction
+            - random extraction in bb
+            - 5 patches/bb
+            - 299x299 patches(min size for inception v3)
+        - Data augmentation on patches:
+            - random rotation (90,180,270)
+            - horizontal and/or vertical flipping
+            - color jitering (FIND PARAMS IN LIT)
+        - Results : 1220 patches
+    - Tumor WSI:
+        - ROI extraction
+            - parsing of .xml annotation file
+            - creation of bounding boxes (tumor regions)
+        - Patch extraction
+            - random extraction in bb
+            - 5 patches/bb
+            - 299x299 patches(min size for inception v3)
+        - Data augmentation on patches:
+            - random rotation (90,180,270)
+            - horizontal and/or vertical flipping
+            - color jitering (FIND PARAMS IN LIT)
+        - Results : 1160 patches
+
+Split of patches dataset :
+    - Normal patches count:
+        - Train: 878
+        - Validation: 98
+        - Test: 244
+    - Tumor patches count:
+        - Train: 835
+        - Validation: 93
+        - Test: 232
