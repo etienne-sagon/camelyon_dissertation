@@ -39,3 +39,7 @@ Split of patches dataset :
         - Train: 835
         - Validation: 93
         - Test: 232
+
+Model training :
+    - Epoch [15/15] completed in 399.09 seconds
+
