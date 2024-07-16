@@ -42,4 +42,6 @@ Split of patches dataset :
 
 Model training :
     - Epoch [15/15] completed in 399.09 seconds
-
+    - 101 minutes
+Model testing :
+    - Accuracy of test images: 86.387435 %
