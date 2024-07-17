@@ -15,33 +15,39 @@ Preprocessing :
             - random rotation (90,180,270)
             - horizontal and/or vertical flipping
             - color jitering (FIND PARAMS IN LIT)
-        - Results : 1220 patches
+        - Results : 1360 patches without tumor
     - Tumor WSI:
         - ROI extraction
             - parsing of .xml annotation file
             - creation of bounding boxes (tumor regions)
         - Patch extraction
-            - random extraction in bb
-            - 5 patches/bb
-            - 299x299 patches(min size for inception v3)
+            - random extraction from tumor regions (from annotations)
+                - 10 patches/bb
+                - 299x299 patches(min size for inception v3)
+            - random extraction from normal regions
+                - 5 patches/bb
+                - 299x299 patches(min size for inception v3)
         - Data augmentation on patches:
             - random rotation (90,180,270)
             - horizontal and/or vertical flipping
             - color jitering (FIND PARAMS IN LIT)
-        - Results : 1160 patches
+        - Results : 3480 patches with tumor / 1680 patches without tumor
 
 Split of patches dataset :
     - Normal patches count:
-        - Train: 878
-        - Validation: 98
-        - Test: 244
+        - Train: 2188
+        - Validation: 244
+        - Test: 608
     - Tumor patches count:
-        - Train: 835
-        - Validation: 93
-        - Test: 232
+        - Train: 1670
+        - Validation: 186
+        - Test: 464
 
 Model training :
-    - Epoch [15/15] completed in 399.09 seconds
-    - 101 minutes
+    - loss = nn.CrossEntropyLoss()
+    - optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
+    - batch_size = 5
+    - Epoch [10/10] completed in 946.50 seconds
+    - 154 min
 Model testing :
     - Accuracy of test images: 86.387435 %
