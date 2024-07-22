@@ -51,3 +51,26 @@ Model training :
     - 154 min
 Model testing :
     - Accuracy of test images: 86.387435 %
+
+dataset structure ejbs1@its-2a30-01:
+- /home/
+    - /shared/
+        - /camelyon16/
+            - /training/
+                - /normal/
+                    - normal_001.tif ... normal_160.tif
+                - /tumor/
+                    - tumor_001.tif  ... tumor_111.tif
+                - /lesion_annotations/
+                    - tumor_001.xml  ... tumor_111.xml
+            - /testing/
+                - /images/
+                    - test_001.tif ... test_130.tif
+                - /lesion_annotations/
+                    - test_001.xml ... test_122.xml
+                - /evaluation/
+                    - evaluation_FROC_old.py  evaluation_FROC.py  evaluation_masks.zip  evaluation_matlab.zip  evaluation_python.zip
+                - reference.csv
+
+
+
