@@ -36,8 +36,7 @@ val_tumor_patch_path = val_patch_dir / "tumor/"
 val_normal_patch_index = 0
 val_tumor_patch_index = 0
 
-mag_level = 4
+mag_level = 5
 patch_size = 299
-nb_patches_per_box = 1
-hello = "hello"
+nb_patches_per_box = 5
 

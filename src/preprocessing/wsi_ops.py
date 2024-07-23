@@ -31,11 +31,12 @@ def parse_xml_annotation(xml_path, mag_level):
         vasc = []
         for coord in coords:
             vasc.append((int(float(coord.attrib.get("X"))/mag_factor),int(float(coord.attrib.get("Y"))/mag_factor)))
-        list_annotations[i] = mag_factor
+        list_annotations[i] = vasc
         i+=1
     return list_annotations
 
-def extract_tissue(rgb_image):
+
+def extract_tissue(wsi_image):
 
     """
     https://github.com/NMPoole/CS5199-Dissertation/blob/main/src/tools/4_generate_tissue_images.py
@@ -47,6 +48,11 @@ def extract_tissue(rgb_image):
     :return binary mask: Binary mask of the image (array)
     :return bounding_boxes: list of bounding boxes
     """
+    level = utils.mag_level
+    
+    wsi_dims = wsi_image.level_dimensions[level]
+    
+    rgb_image = np.array(wsi_image.read_region((0, 0), level, wsi_dims).convert("RGB"))
 
     # Convert RGB image to HSV
     hsv_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2HSV)
@@ -75,7 +81,7 @@ def extract_tissue(rgb_image):
     contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     bounding_boxes = [cv2.boundingRect(contour) for contour in contours if cv2.contourArea(contour) > 750] # Filter small areas
     
-    return binary_mask, bounding_boxes   
+    return binary_mask, bounding_boxes 
 
 def is_in_tumor_region(patch_x, patch_y, tumor_list):
         
