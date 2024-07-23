@@ -19,7 +19,7 @@ val_normal_slide_path = validation_dir / "normal/"
 val_tumor_slide_path = validation_dir / "tumor/"
 val_annotation_path = validation_dir / "lesion_annotations/"
 
-#patche classification
+#patch classification
 patch_classification_dir =  global_dir / "patch_classification/"
 
 #training patches
@@ -38,4 +38,5 @@ val_tumor_patch_index = 0
 
 mag_level = 5
 patch_size = 299
-nb_patches_per_box = 5
+nb_patches_per_box = 1
+
