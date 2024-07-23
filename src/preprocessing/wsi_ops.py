@@ -5,8 +5,9 @@ import openslide
 from skimage.filters import threshold_otsu, median
 from skimage.morphology import binary_dilation
 import xml.etree.ElementTree as ET
-import src.utils as utils
 import os
+
+import src.utils as utils
 
 
 def parse_xml_annotation(xml_path, mag_level):

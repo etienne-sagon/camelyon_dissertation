@@ -3,8 +3,8 @@ import numpy as np
 import cv2
 
 import src.utils as utils
-import src.wsi_ops as wsi
-import src.data_augmentation as aug
+import src.preprocessing.wsi_ops as wsi
+import src.preprocessing.data_augmentation as aug
 
 # Example function to extract negative patches from normal WSI
 def extract_normal_patches_from_normal_wsi(wsi_path, wsi_image, bounding_boxes, patch_directory, patch_index):
