@@ -24,13 +24,14 @@ def parse_xml_annotation(xml_path, mag_level):
     root = tree.getroot()
     list_annotations = {}
 
-    factor = 2**mag_level  
+    mag_factor = pow(2, mag_level)
+
     i = 0
     for coords in root.iter('Coordinates'):
         vasc = []
         for coord in coords:
-            vasc.append((int(float(coord.attrib.get("X"))/factor),int(float(coord.attrib.get("Y"))/factor)))
-        list_annotations[i] = vasc
+            vasc.append((int(float(coord.attrib.get("X"))/mag_factor),int(float(coord.attrib.get("Y"))/mag_factor)))
+        list_annotations[i] = mag_factor
         i+=1
     return list_annotations
 
