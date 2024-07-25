@@ -9,13 +9,12 @@ Preprocessing :
             - creation of bounding boxes (tissue)
         - Patch extraction
             - random extraction in bb
-            - 5 patches/bb
-            - 299x299 patches(min size for inception v3)
+            - 10 patches/bb
+            - 256x256 patches
         - Data augmentation on patches:
             - random rotation (90,180,270)
             - horizontal and/or vertical flipping
             - color jitering (FIND PARAMS IN LIT)
-        - Results : 1360 patches without tumor
     - Tumor WSI:
         - ROI extraction
             - parsing of .xml annotation file
@@ -23,25 +22,36 @@ Preprocessing :
         - Patch extraction
             - random extraction from tumor regions (from annotations)
                 - 10 patches/bb
-                - 299x299 patches(min size for inception v3)
+                - 256x256 patches
             - random extraction from normal regions
-                - 5 patches/bb
-                - 299x299 patches(min size for inception v3)
+                - 10 patches/bb
+                - 256x256 patches
         - Data augmentation on patches:
             - random rotation (90,180,270)
             - horizontal and/or vertical flipping
             - color jitering (FIND PARAMS IN LIT)
-        - Results : 3480 patches with tumor / 1680 patches without tumor
 
 Split of patches dataset :
     - Normal patches count:
-        - Train: 2188
-        - Validation: 244
-        - Test: 608
+        - Train: ???
+        - Validation: ???
+        - Test: ???
     - Tumor patches count:
-        - Train: 1670
-        - Validation: 186
-        - Test: 464
+        - Train: ???
+        - Validation: ???
+        - Test: ???
+
+Method :
+FROM : :  HMS-MGH (I, II & III)
+GoogLeNet
+Parameters:
+- optimization method: SGD
+- Weight initialization: Pre-trained model with the ImageNet
+- Batch size: 64 (or 32 if smaller dataset)
+- Regularization: L2 with 0.0002
+- Learning rate: 0.001 and divided by 10 when the error plateaued
+- Activation function: ReLu
+- Loss function: Cross-entropy
 
 Model training :
     - loss = nn.CrossEntropyLoss()

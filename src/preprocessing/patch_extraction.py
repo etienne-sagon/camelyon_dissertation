@@ -2,6 +2,11 @@
 import numpy as np
 import cv2
 import openslide
+import sys
+import os
+
+# Add the parent directory of 'src' to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 import src.utils as utils
 import src.preprocessing.wsi_ops as wsi

@@ -5,7 +5,11 @@ import openslide
 from skimage.filters import threshold_otsu, median
 from skimage.morphology import binary_dilation
 import xml.etree.ElementTree as ET
+import sys
 import os
+
+# Adjust the path to include the 'src' directory
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 import src.utils as utils
 

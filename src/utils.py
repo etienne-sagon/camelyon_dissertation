@@ -40,5 +40,5 @@ mag_level = 4
 patch_size = 256
 nb_patches_per_box = 10
 
-batch_size = 32
-nb_epochs = 15
+batch_size = 32 #switch to 32
+nb_epochs = 30

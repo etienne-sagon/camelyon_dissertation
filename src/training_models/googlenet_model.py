@@ -1,23 +1,8 @@
 #import necessary libraries
-import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import models, transforms
-
-# PS D:\CAMELYON16\camelyon_dissertation> & D:/Userssgnetanaconda3/envs/camelyon_venv/python.exe d:/CAMELYON16/camelyon_dissertation/src/training_models/googlenet_model.py
-# Traceback (most recent call last):
-#   File "d:\CAMELYON16\camelyon_dissertation\src\training_models\googlenet_model.py", line 5, in <module>
-#     from torchvision import models, transforms
-#   File "D:\Userssgnetanaconda3\envs\camelyon_venv\Lib\site-packages\torchvision\__init__.py", line 10, in <module>
-#     from torchvision import _meta_registrations, datasets, io, models, ops, transforms, utils  # usort:skip
-#     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "D:\Userssgnetanaconda3\envs\camelyon_venv\Lib\site-packages\torchvision\datasets\__init__.py", line 1, in <module>
-#     from ._optical_flow import FlyingChairs, FlyingThings3D, HD1K, KittiFlow, Sintel
-#   File "D:\Userssgnetanaconda3\envs\camelyon_venv\Lib\site-packages\torchvision\datasets\_optical_flow.py", line 10, in <module>
-#     from PIL import Image
-#   File "D:\Userssgnetanaconda3\envs\camelyon_venv\Lib\site-packages\PIL\Image.py", line 100, in <module>
-#     from . import _imaging as core
-# ImportError: DLL load failed while importing _imaging: The operating system cannot run %1.
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 def get_googlenet_model(num_classes=2, pretrained=True):
 
@@ -58,7 +43,7 @@ def get_transform():
 
     return train_transform, val_transform
 
-def get_loss_and_optimizer(model):
+def get_loss_optimizer_scheduler(model):
 
     """
     Setup the loss function and optimizer.
@@ -68,9 +53,11 @@ def get_loss_and_optimizer(model):
     """
 
     loss = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9, 
+                          weight_decay=0.0002)  # L2 regularization
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True)
     
-    return loss, optimizer
+    return loss, optimizer, scheduler
 
 
 

@@ -1,34 +1,49 @@
 #import necessary libraries
+import os
+import sys
+import time
 import torch
 from torchvision import datasets
 from torch.utils.data import DataLoader
-import src.utils as utils
+import matplotlib.pyplot as plt
+
+# Adjust the path to include the 'src' directory
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import src.training_models.googlenet_model as model
-import time
+import src.utils as utils
+
 
 # Define device
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# Load data
-train_data = datasets.ImageFolder(utils.train_patch_dir, model.train_transform)
-val_data = datasets.ImageFolder(utils.val_patch_dir, model.val_transform)
 
+# Load data
+train_transform, val_transform = model.get_transform()
+train_data = datasets.ImageFolder(utils.train_patch_dir, transform=train_transform)
+val_data = datasets.ImageFolder(utils.val_patch_dir, transform=val_transform)
 
 batch_size = utils.batch_size
 num_epochs = utils.nb_epochs
 
+
 train_loader = DataLoader(train_data,
                           batch_size=batch_size,
                           shuffle=True,
-                          drop_last=True)
+                          drop_last=False)
 
 val_loader = DataLoader(val_data, 
                          batch_size=batch_size,
-                         shuffle=True,
-                         drop_last=True)
+                         shuffle=False,  # Typically, validation data should not be shuffled
+                         drop_last=False)
 
-googlenet_model = model.googlenet_model
+# Load model
+googlenet_model = model.get_googlenet_model(num_classes=2, pretrained=True)
 googlenet_model = googlenet_model.to(device)
+
+# Initialize loss function and optimizer and scheduler
+loss_fn, optimizer, scheduler = model.get_loss_optimizer_scheduler(googlenet_model)
+
 
 # Initialize lists to store the training and validation losses
 train_losses = []
@@ -38,7 +53,7 @@ for epoch in range(num_epochs):
     googlenet_model.train()
     epoch_start_time = time.time()  # Start time of the epoch
     
-    total_batch = len(train_data) // batch_size
+    total_batch = len(train_loader) 
     train_loss = 0.0
 
     for i, (batch_images, batch_labels) in enumerate(train_loader):
@@ -46,17 +61,18 @@ for epoch in range(num_epochs):
         X = batch_images.to(device)
         Y = batch_labels.to(device)
 
-        pre = googlenet_model(X)
-        cost = model.loss(pre, Y)
+        optimizer.zero_grad()
 
-        model.optimizer.zero_grad()
-        cost.backward()
-        model.optimizer.step()
+        outputs = googlenet_model(X)
+        loss = loss_fn(outputs, Y)
 
-        train_loss += cost.item()
+        loss.backward()
+        optimizer.step()
 
-        if (i+1) % 5 == 0:
-            print('Epoch [%d/%d], lter [%d/%d] Loss: %.4f' %(epoch+1, num_epochs, i+1, total_batch, cost.item()))
+        train_loss += loss.item()
+
+        if (i + 1) % batch_size == 0:
+            print(f'Epoch [{epoch + 1}/{num_epochs}], Iter [{i + 1}/{total_batch}] Loss: {loss.item():.4f}')
 
     train_losses.append(train_loss / len(train_loader))
 
@@ -69,18 +85,43 @@ for epoch in range(num_epochs):
             val_labels = val_labels.to(device)
 
             val_outputs = googlenet_model(val_images)
-            val_cost = model.loss(val_outputs, val_labels)
+            val_cost = loss_fn(val_outputs, val_labels)
             
             val_loss += val_cost.item()
     
     val_losses.append(val_loss / len(val_loader))
 
-
-
     epoch_end_time = time.time()  # End time of the epoch
     epoch_duration = epoch_end_time - epoch_start_time  # Duration of the epoch
-    print('Epoch [%d/%d] completed in %.2f seconds' % (epoch + 1, num_epochs, epoch_duration))
-    print('Training Loss: %.4f, Validation Loss: %.4f' % (train_losses[-1], val_losses[-1]))
+    print(f'Epoch [{epoch + 1}/{num_epochs}] completed in {epoch_duration:.2f} seconds')
+    print(f'Training Loss: {train_losses[-1]:.4f}, Validation Loss: {val_losses[-1]:.4f}')
 
-# Save model
-torch.save(googlenet_model.state_dict(), "D:/CAMELYON16/camelyon_dissertation/models/googlenet_test")
+# Save the model
+model_path = "D:/CAMELYON16/camelyon_dissertation/models/googlenet_test.pth"
+torch.save(googlenet_model.state_dict(), model_path)
+print(f'Model saved to {model_path}')
+
+
+def plot_losses(train_losses, val_losses):
+    """
+    Plots the training and validation losses over epochs.
+
+    :param train_losses: List of training losses per epoch.
+    :param val_losses: List of validation losses per epoch.
+    """
+    epochs = range(1, len(train_losses) + 1)
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(epochs, train_losses, label='Training Loss', color='blue', marker='o')
+    plt.plot(epochs, val_losses, label='Validation Loss', color='red', marker='o')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss Over Epochs')
+    plt.legend()
+    plt.grid(True)
+    plt.xticks(epochs)  # Ensure that all epochs are shown on the x-axis
+    plt.savefig('loss_plot.png')  # Save the plot as a PNG file
+    plt.show()  # Display the plot
+
+# Example usage
+plot_losses(train_losses, val_losses)
