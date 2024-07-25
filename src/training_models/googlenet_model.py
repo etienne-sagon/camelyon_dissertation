@@ -55,7 +55,7 @@ def get_loss_optimizer_scheduler(model):
     loss = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9, 
                           weight_decay=0.0002)  # L2 regularization
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
     
     return loss, optimizer, scheduler
 
