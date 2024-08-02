@@ -52,7 +52,7 @@ def extract_tissue(wsi_image):
     :return binary mask: Binary mask of the image (array)
     :return bounding_boxes: list of bounding boxes
     """
-    level = utils.mag_level
+    level = utils.mag_level_tissue
     
     wsi_dims = wsi_image.level_dimensions[level]
     

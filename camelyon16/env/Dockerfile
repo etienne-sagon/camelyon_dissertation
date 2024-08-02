@@ -1,8 +1,5 @@
 # Use the base image with CUDA support
-FROM nvcr.io/nvidia/cuda:11.6.2-base-ubuntu20.04
-
-# Set the working directory
-WORKDIR /app
+FROM pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime
 
 # Set environment variables to configure tzdata non-interactively
 ENV DEBIAN_FRONTEND=noninteractive
@@ -22,22 +19,22 @@ RUN apt-get update && apt-get install -y \
 # Check Python and pip installation
 RUN python3 --version && pip3 --version
 
-# Copy the requirements.txt file
-COPY requirements.txt /app/requirements.txt
-
-# Install Python packages from requirements.txt
-RUN pip3 install -r /app/requirements.txt
-
 # Install additional Python packages
-RUN pip3 install \
-    torch==1.13.0 torchvision==0.14.0 --extra-index-url https://download.pytorch.org/whl/cu117 \
+RUN pip3 install --no-cache-dir \
+    numpy \
+    opencv-python-headless \
     scikit-image \
     openslide-python \
     matplotlib \
     pillow
 
-# Copy the local repository into the Docker image
-COPY . /app
+# Install additional Python packages
+RUN pip3 install --no-cache-dir \
+    torch==1.13.0 torchvision==0.14.0 --extra-index-url https://download.pytorch.org/whl/cu117 \
+    scikit-image \
+    openslide-python \
+    matplotlib \
+    pillow
 
 # Set the command to run when the container starts
 CMD ["bash"]

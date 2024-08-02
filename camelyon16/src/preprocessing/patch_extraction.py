@@ -4,6 +4,7 @@ import cv2
 import openslide
 import sys
 import os
+from pathlib import Path
 
 # Add the parent directory of 'src' to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -29,7 +30,7 @@ def extract_normal_patches_from_normal_wsi(wsi_path, wsi_image, bounding_boxes, 
 
     patch_size = utils.patch_size
     patch_per_box = utils.nb_patches_per_box
-    level = utils.mag_level
+    level = utils.mag_level_patch
     mag_factor = pow(2, level)
 
     wsi_label, wsi_id = wsi.extract_info(wsi_path)
@@ -78,7 +79,7 @@ def extract_normal_patches_from_tumor_wsi(wsi_path, wsi_image, anno_path, boundi
     
     patch_size = utils.patch_size
     patch_per_box = utils.nb_patches_per_box
-    level = utils.mag_level
+    level = utils.mag_level_patch
     mag_factor = pow(2, level)
     
     # Extract the annotations from xml file (scaled for the magnification level used)
@@ -136,7 +137,7 @@ def extract_tumor_patches_from_tumor_wsi(wsi_path, wsi_image, anno_path, patch_d
 
     patch_size = utils.patch_size
     patch_per_box = utils.nb_patches_per_box
-    level = utils.mag_level
+    level = utils.mag_level_patch
     mag_factor = pow(2, level)
 
     #extract the annotations from xml file (already scaled for the magnification level used)
@@ -180,12 +181,28 @@ def extract_save_patches_training():
 
     patch_normal_index = utils.train_normal_patch_index
     patch_tumor_index = utils.train_tumor_patch_index
-    print("Patch extraction is starting...")
+    train_normal_slide_path = Path(utils.train_normal_slide_path)
+    train_tumor_slide_path = Path(utils.train_tumor_slide_path)
 
-    print("Extracting normal patches from normal WSI...")
+    print("\n\nPatch extraction is starting...")
+
+    print("\n\nExtracting normal patches from normal WSI...")
+    print(train_normal_slide_path)
+
+    # Check if the directory exists
+    if not train_normal_slide_path.exists():
+        print(f"Error: Directory {train_normal_slide_path} does not exist.")
+        return
+
+    
+    # List all .tif files in the directory
+    tif_files = list(train_normal_slide_path.glob("*.tif"))
+    # Print the number of .tif files
+    print(f"Total number of .tif files in '{train_normal_slide_path}': {len(tif_files)}")
+
     # NORMAL PATCH FROM NORMAL SLIDES
-    for path in utils.train_normal_slide_path.glob("*.tif"):
-
+    for path in train_normal_slide_path.glob("*.tif"):
+        print(path)
         #read the wsi
         slide = openslide.OpenSlide(path)
         #extract the tissue
@@ -196,12 +213,19 @@ def extract_save_patches_training():
         #extract normal patches 
         patch_normal_index = extract_normal_patches_from_normal_wsi(path, slide, bounding_boxes, utils.train_normal_patch_path, patch_normal_index)
         slide.close()
-        print(f"FOR : {path} \nNumber of patch extracted : {patch_normal_index - temp_normal}")
+        print(f"FOR : {path} \nNumber of patch extracted : {patch_normal_index - temp_normal} to {utils.train_normal_patch_path}" )
 
-    print("Extracting normal and tumor patches from tumor WSI...")
+    print("\n\nExtracting normal and tumor patches from tumor WSI...")
+    print(train_tumor_slide_path)  
+
+    # Check if the directory exists
+    if not train_tumor_slide_path.exists():
+        print(f"Error: Directory {train_tumor_slide_path} does not exist.")
+        return
+    
     # NORMAL PATCH FROM TUMOR SLIDEs
-    for path in utils.train_tumor_slide_path.glob("*.tif"):
-
+    for path in train_tumor_slide_path.glob("*.tif"):
+        print(path)
         #read the wsi
         slide = openslide.OpenSlide(path)
         _, wsi_id = wsi.extract_info(str(path))
@@ -214,15 +238,15 @@ def extract_save_patches_training():
         temp_normal = patch_normal_index
         #extract normal patches 
         patch_normal_index = extract_normal_patches_from_tumor_wsi(path, slide, xml_path, bounding_boxes, utils.train_normal_patch_path, patch_normal_index)
-        print(f"FOR : {path}\nNumber of normal patch extracted : {patch_normal_index - temp_normal}")
+        print(f"FOR : {path}\nNumber of normal patch extracted : {patch_normal_index - temp_normal} to {utils.train_normal_patch_path}")
 
         #extract tumor patches 
         temp_tumor = patch_tumor_index
         patch_tumor_index = extract_tumor_patches_from_tumor_wsi(path,  slide, xml_path, utils.train_tumor_patch_path, patch_tumor_index)
-        print(f"\nNumber of tumor patch extracted : {patch_tumor_index - temp_tumor}")
+        print(f"\nNumber of tumor patch extracted : {patch_tumor_index - temp_tumor} to {utils.train_tumor_patch_path}")
         
         slide.close()
 
     
-    print("\nTOTAL NORMAL PATCHES EXTRACTED : ",patch_normal_index)
+    print("\n\nTOTAL NORMAL PATCHES EXTRACTED : ",patch_normal_index)
     print("\nTOTAL TUMOR PATCHES EXTRACTED : ",patch_tumor_index)

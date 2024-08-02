@@ -6,6 +6,10 @@ import torch
 from torchvision import datasets
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+import random
+import shutil
+from pathlib import Path
+
 
 
 # Adjust the path to include the 'src' directory
@@ -13,6 +17,36 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 
 import src.training_models.googlenet_model as model
 import src.utils as utils
+
+def move_patches_to_validation(source_dir, dest_dir, percentage=0.1):
+    """
+    Moves a specified percentage of patches from source directory to destination directory.
+    
+    :param source_dir: Path to the source directory
+    :param dest_dir: Path to the destination directory
+    :param percentage: Percentage of patches to move (default is 0.1 for 10%)
+    """
+    source_dir = Path(source_dir)
+    dest_dir = Path(dest_dir)
+    
+    # Ensure destination directory exists
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Get all patch files
+    patch_files = list(source_dir.glob('*'))
+    
+    # Calculate number of files to move
+    num_to_move = int(len(patch_files) * percentage)
+    
+    # Randomly select files to move
+    files_to_move = random.sample(patch_files, num_to_move)
+    
+    # Move selected files
+    for file in files_to_move:
+        shutil.move(str(file), str(dest_dir / file.name))
+    
+    print(f"Moved {num_to_move} patches from {source_dir} to {dest_dir}")
+
 
 def plot_losses(train_losses, val_losses):
     """
@@ -32,10 +66,17 @@ def plot_losses(train_losses, val_losses):
     plt.legend()
     plt.grid(True)
     plt.xticks(epochs)  # Ensure that all epochs are shown on the x-axis
-    plt.savefig('loss_plot.png')  # Save the plot as a PNG file
+    plt.savefig('/app/scripts/models/googlenet_loss_plot.png')  # Save the plot as a PNG file
     plt.show()  # Display the plot
+    print("Loss plot saved")
 
 def train_googlenet_model():
+    train_start_time = time.time()
+    # Move patches before loading data
+    # move_patches_to_validation(utils.train_normal_patch_path, utils.val_normal_patch_path, 0.10)
+    # move_patches_to_validation(utils.train_tumor_patch_path, utils.val_tumor_patch_path, 0.10)
+
+
     # Define device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -121,8 +162,12 @@ def train_googlenet_model():
         print(f'Training Loss: {train_losses[-1]:.4f}, Validation Loss: {val_losses[-1]:.4f}')
 
     # Save the model
-    model_path = "D:/CAMELYON16/camelyon_dissertation/models/googlenet_test.pth"
+    model_path = "/app/scripts/models/googlenet_test.pth"
     torch.save(googlenet_model.state_dict(), model_path)
-    print(f'Model saved to {model_path}')
+    train_end_time = time.time()
 
+    training_time = train_end_time - train_start_time #duration of training
+    print(f'Model saved to {model_path}')
+    print(f"\nTotal training time: {training_time}")
+    
     plot_losses(train_losses, val_losses)

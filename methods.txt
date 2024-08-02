@@ -32,14 +32,10 @@ Preprocessing :
             - color jitering (FIND PARAMS IN LIT)
 
 Split of patches dataset :
-    - Normal patches count:
-        - Train: ???
-        - Validation: ???
-        - Test: ???
-    - Tumor patches count:
-        - Train: ???
-        - Validation: ???
-        - Test: ???
+    - Normal train patches count: 208,960
+
+    - Tumor train patches count: 103,880
+ 
 
 Method :
 FROM : :  HMS-MGH (I, II & III)

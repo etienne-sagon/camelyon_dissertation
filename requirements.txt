@@ -1,6 +1,0 @@
-numpy
-opencv-python-headless
-scikit-image
-openslide-python
-matplotlib
-Pillow
