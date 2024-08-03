@@ -13,6 +13,7 @@ train_annotation_path = training_dir / "lesion_annotations/"
 testing_dir = global_dir / "testing/"
 test_slide_path = testing_dir / "images/"
 test_annotation_path = testing_dir / "lesion_annotations/"
+test_slide_path_example = testing_dir / "test_001.tif"
 
 #validation slides
 validation_dir = global_dir / "validation/"
@@ -37,6 +38,9 @@ val_tumor_patch_path = val_patch_dir / "tumor/"
 val_normal_patch_index = 0
 val_tumor_patch_index = 0
 
+
+model_save_path = "/app/scripts/models/googlenet_test.pth"
+
 mag_level_patch = 0
 mag_level_tissue = 5
 patch_size = 256
@@ -44,3 +48,5 @@ nb_patches_per_box = 10
 
 batch_size = 32 #switch to 32
 nb_epochs = 50
+
+

@@ -49,15 +49,6 @@ Parameters:
 - Activation function: ReLu
 - Loss function: Cross-entropy
 
-Model training :
-    - loss = nn.CrossEntropyLoss()
-    - optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
-    - batch_size = 5
-    - Epoch [10/10] completed in 946.50 seconds
-    - 154 min
-Model testing :
-    - Accuracy of test images: 86.387435 %
-
 dataset structure ejbs1@its-2a30-01:
 - /home/
     - /shared/

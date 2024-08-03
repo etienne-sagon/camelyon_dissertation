@@ -26,7 +26,8 @@ RUN pip3 install --no-cache-dir \
     scikit-image \
     openslide-python \
     matplotlib \
-    pillow
+    pillow \
+    pandas
 
 # Install additional Python packages
 RUN pip3 install --no-cache-dir \
