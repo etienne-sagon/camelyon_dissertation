@@ -40,7 +40,7 @@ def parse_xml_annotation(xml_path, mag_level):
     return list_annotations
 
 
-def extract_tissue(wsi_image):
+def extract_tissue(wsi_image, level):
 
     """
     https://github.com/NMPoole/CS5199-Dissertation/blob/main/src/tools/4_generate_tissue_images.py
@@ -52,7 +52,7 @@ def extract_tissue(wsi_image):
     :return binary mask: Binary mask of the image (array)
     :return bounding_boxes: list of bounding boxes
     """
-    level = utils.mag_level_tissue
+    #level = utils.mag_level_tissue
     
     wsi_dims = wsi_image.level_dimensions[level]
     

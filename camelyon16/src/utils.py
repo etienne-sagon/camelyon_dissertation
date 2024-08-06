@@ -13,7 +13,6 @@ train_annotation_path = training_dir / "lesion_annotations/"
 testing_dir = global_dir / "testing/"
 test_slide_path = testing_dir / "images/"
 test_annotation_path = testing_dir / "lesion_annotations/"
-test_slide_path_example = testing_dir / "test_001.tif"
 
 #validation slides
 validation_dir = global_dir / "validation/"
@@ -40,6 +39,7 @@ val_tumor_patch_index = 0
 
 
 model_save_path = "/app/scripts/models/googlenet_test.pth"
+inference_save_path = "/app/scripts/results_inference/"
 
 mag_level_patch = 0
 mag_level_tissue = 5

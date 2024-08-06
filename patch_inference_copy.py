@@ -5,6 +5,8 @@ import cv2
 import torch
 from pathlib import Path
 from torchvision import transforms
+from skimage.filters import threshold_otsu
+from scipy.ndimage import binary_dilation, median
 import xml.etree.ElementTree as ET
 from torchvision import models
 import torch.nn as nn
@@ -12,13 +14,14 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from shapely.geometry import Polygon, Point
 from PIL import Image
-from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, roc_curve, auc, precision_recall_curve, average_precision_score
 
 import src.preprocessing.wsi_ops as ops
 
 def create_tumor_mask(slide_dimensions, xml_path, level):
-    print("Masking...")
     width, height = slide_dimensions
+    print(f"Input slide dimensions at level {level}: ({width}, {height})")
+
+    print("masking...")
     # Parse the XML file
     tree = ET.parse(xml_path)
     root = tree.getroot()
@@ -27,6 +30,7 @@ def create_tumor_mask(slide_dimensions, xml_path, level):
 
     # Create an empty mask
     mask = np.zeros((height, width), dtype=np.uint8)
+    print("empty mask created")
 
     # Extract coordinates from the XML
     polygons = []
@@ -34,15 +38,16 @@ def create_tumor_mask(slide_dimensions, xml_path, level):
         coords = annotation.find('Coordinates')
         points = [(int(float(coord.attrib.get("X"))/mag_factor), int(float(coord.attrib.get("Y"))/mag_factor)) for coord in coords.findall('Coordinate')]
         polygons.append(Polygon(points))
-    print("Coords extracted")
+    print("coords extracted")
 
     # Create the mask
     for y in range(height):
+        print(y)
         for x in range(width):
             point = Point(x, y)
             if any(polygon.contains(point) for polygon in polygons):
                 mask[y, x] = 255
-    print("Binary mask created")
+    print("binary mask created")
 
     return mask
 
@@ -94,8 +99,7 @@ def load_model(model_path):
     
     model.to(DEVICE)
     model.eval()
-    print("GoogLeNet loaded")
-
+    print("model loaded")
     return model
 
 # Function to make prediction for a single patch
@@ -104,6 +108,53 @@ def predict_patch(model, patch):
         output = model(patch)
         probabilities = torch.softmax(output, dim=1)
     return probabilities[0, 1].item()
+    
+def extract_tissue(wsi_image, level):
+
+    """
+    https://github.com/NMPoole/CS5199-Dissertation/blob/main/src/tools/4_generate_tissue_images.py
+
+    Create a binary mask of the tissue regions using OTSU algorithm in the HSV color space.
+    Create bounding boxes around the tissue regions.
+
+    :param rgb_image: Image in an array format 
+    :return binary mask: Binary mask of the image (array)
+    :return bounding_boxes: list of bounding boxes
+    """
+    #level = utils.mag_level_tissue
+    
+    wsi_dims = wsi_image.level_dimensions[level]
+    
+    rgb_image = np.array(wsi_image.read_region((0, 0), level, wsi_dims).convert("RGB"))
+
+    # Convert RGB image to HSV
+    hsv_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2HSV)
+    
+    # Perform Otsu thresholding on Hue and Saturation channels
+    hue_channel = hsv_image[:, :, 0]
+    sat_channel = hsv_image[:, :, 1]
+    otsu_thresh_hue = threshold_otsu(hue_channel)
+    otsu_thresh_sat = threshold_otsu(sat_channel)
+    binary_mask_hue = hue_channel <= otsu_thresh_hue
+    binary_mask_sat = sat_channel <= otsu_thresh_sat
+
+    # Create the Mask (Hue + Saturation channels)
+    binary_mask = binary_mask_hue + binary_mask_sat
+
+    # Mask improvements
+    # Apply median filtering to remove spurious regions
+    #binary_mask = median(binary_mask, np.ones((7, 7)))
+    # Dilate to add slight tissue buffer
+    binary_mask = binary_dilation(binary_mask, np.ones((5, 5)))
+
+    # Convert to uint8
+    binary_mask = (binary_mask + 255).astype(np.uint8)
+
+    # Find contours and create bounding boxes
+    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    bounding_boxes = [cv2.boundingRect(contour) for contour in contours if cv2.contourArea(contour) > 750] # Filter small areas
+    
+    return binary_mask, bounding_boxes 
 
 
 def visualize_slide_processing(slide_path, level, tumor_mask, extracted_patches, save_path):
@@ -147,81 +198,6 @@ def visualize_slide_processing(slide_path, level, tumor_mask, extracted_patches,
     slide.close()
 
 
-def compute_and_save_metrics(df, output_dir):
-
-    # Ensure output directory exists
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Convert predictions to binary (assuming threshold of 0.5)
-    y_pred_proba = df['prediction']
-    y_true = df['truth']
-
-
-    # Compute ROC curve and AUC
-    fpr, tpr, roc_thresholds = roc_curve(y_true, y_pred_proba)
-    roc_auc = auc(fpr, tpr)
-
-
-    # Compute Precision-Recall curve
-    precision, recall, pr_thresholds = precision_recall_curve(y_true, y_pred_proba)
-    average_precision = average_precision_score(y_true, y_pred_proba)
-
-    # Find optimal threshold using F1 score
-    f1_scores = []
-    for threshold in pr_thresholds:
-        y_pred = (y_pred_proba >= threshold).astype(int)
-        f1_scores.append(f1_score(y_true, y_pred))
-    optimal_threshold = pr_thresholds[np.argmax(f1_scores)]
-
-    # Compute metrics using optimal threshold
-    y_pred = (y_pred_proba >= optimal_threshold).astype(int)
-    cm = confusion_matrix(y_true, y_pred)
-    accuracy = accuracy_score(y_true, y_pred)
-    precision_sc = precision_score(y_true, y_pred)
-    recall_sc = recall_score(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred)
-
-    # Save metrics to a text file
-    with open(output_dir / 'metrics.txt', 'w') as f:
-        f.write(f"\nOptimal Threshold: {optimal_threshold:.4f}\n\n")
-        f.write(f"Confusion Matrix:\n{cm}\n\n")
-        f.write(f"Accuracy: {accuracy:.4f}\n")
-        f.write(f"Precision: {precision_sc:.4f}\n")
-        f.write(f"Recall: {recall_sc:.4f}\n")
-        f.write(f"F1-score: {f1:.4f}\n")
-        f.write(f"AUC-ROC: {roc_auc:.4f}\n")
-        f.write(f"Average Precision: {average_precision:.4f}\n")
-
-    # Plot and save ROC curve
-    plt.figure(figsize=(10, 8))
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
-    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic (ROC) Curve')
-    plt.legend(loc="lower right")
-    plt.savefig(output_dir / 'roc_curve.png')
-    plt.close()
-
-    print(f"Metrics and ROC curve saved in {output_dir}")
-
-    # Plot and save Precision-Recall curve
-    plt.figure(figsize=(10, 8))
-    plt.step(recall, precision, color='b', alpha=0.2, where='post')
-    plt.fill_between(recall, precision, step='post', alpha=0.2, color='b')
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.ylim([0.0, 1.05])
-    plt.xlim([0.0, 1.0])
-    plt.title('Precision-Recall curve: AP={0:0.2f}'.format(average_precision))
-    plt.savefig(output_dir / 'precision_recall_curve.png')
-    plt.close()
-    
-    print(f"Metrics and curves saved in {output_dir}")
-
 
 def process_slide(slide_path, annotation_path, model, level, patch_size=224):
     # Read the WSI at the specified level
@@ -231,8 +207,9 @@ def process_slide(slide_path, annotation_path, model, level, patch_size=224):
     print(f"Annotation path: {annotation_path}")
     print(f"Slide dimensions at level {level}: {slide_dim}")
 
+    
     # Extract patches from the tissue region
-    _, bounding_boxes = ops.extract_tissue(slide, level)
+    tissue_mask, bounding_boxes = extract_tissue(slide, level)
     
     # Get the single bounding box encompassing all tissue regions
     xmin = min(box[0] for box in bounding_boxes)
@@ -245,9 +222,15 @@ def process_slide(slide_path, annotation_path, model, level, patch_size=224):
         tumor_mask = create_tumor_mask(slide_dim, annotation_path, level)
     else:
         tumor_mask = None
+    
+    # Print debug information
+    #print(f"Number of tumor annotations: {len(tumor_annotations)}")
+
+    print(f"Slide dimensions at level {level}: {slide.level_dimensions[level]}")
+    print(f"Tissue bounding box: ({xmin}, {ymin}, {xmax}, {ymax})")
 
     results = []
-    #extracted_patches = []
+    extracted_patches = []
     
     # Extract patches from the single bounding box
     for x in range(xmin, xmax, patch_size):
@@ -272,14 +255,12 @@ def process_slide(slide_path, annotation_path, model, level, patch_size=224):
                 'truth': truth
             })
 
-            #extracted_patches.append((x, y, patch_size, patch_size))
+            extracted_patches.append((x, y, patch_size, patch_size))
 
     # Visualize the tumor mask and extracted patches
-    # vis_save_path = Path("D:/CAMELYON16/camelyon_dissertation/results_inference/processing_visualization.png")
-    # if tumor_mask is not None:
-    #     visualize_slide_processing(slide_path, level, tumor_mask, extracted_patches, vis_save_path)
-    #     print(f"Processing visualization saved to: {vis_save_path}")
+    vis_save_path = Path("D:/CAMELYON16/camelyon_dissertation/processing_visualization.png")
+    if tumor_mask is not None:
+        visualize_slide_processing(slide_path, level, tumor_mask, extracted_patches, vis_save_path)
+        print(f"Processing visualization saved to: {vis_save_path}")
     
-    # Assuming your DataFrame is named 'final_df'
-    results_df = pd.DataFrame(results)
-    return results_df
+    return pd.DataFrame(results)

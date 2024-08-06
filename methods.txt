@@ -43,7 +43,7 @@ GoogLeNet
 Parameters:
 - optimization method: SGD
 - Weight initialization: Pre-trained model with the ImageNet
-- Batch size: 64 (or 32 if smaller dataset)
+- Batch size: 32 
 - Regularization: L2 with 0.0002
 - Learning rate: 0.001 and divided by 10 when the error plateaued
 - Activation function: ReLu
