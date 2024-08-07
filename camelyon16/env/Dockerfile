@@ -28,8 +28,8 @@ RUN pip3 install --no-cache-dir \
     matplotlib \
     pillow \
     pandas \
-    shapely \
-    scikit-learn
+    scikit-learn \
+    h5py
 
 # Install additional Python packages
 RUN pip3 install --no-cache-dir \

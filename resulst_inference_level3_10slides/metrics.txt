@@ -1,0 +1,13 @@
+
+Optimal Threshold: 0.5000
+
+Confusion Matrix:
+[[23352     0]
+ [  192     0]]
+
+Accuracy: 0.9918
+Precision: 0.0000
+Recall: 0.0000
+F1-score: 0.0000
+AUC-ROC: 0.5000
+Average Precision: 0.0082

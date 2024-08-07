@@ -1,70 +1,16 @@
-import openslide
 import numpy as np
 import pandas as pd
-import cv2
 import torch
 from pathlib import Path
 from torchvision import transforms
-import xml.etree.ElementTree as ET
 from torchvision import models
 import torch.nn as nn
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from shapely.geometry import Polygon, Point
-from PIL import Image
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, roc_curve, auc, precision_recall_curve, average_precision_score
-
-import src.preprocessing.wsi_ops as ops
-
-def create_tumor_mask(slide_dimensions, xml_path, level):
-    print("Masking...")
-    width, height = slide_dimensions
-    # Parse the XML file
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-
-    mag_factor = pow(2,level)
-
-    # Create an empty mask
-    mask = np.zeros((height, width), dtype=np.uint8)
-
-    # Extract coordinates from the XML
-    polygons = []
-    for annotation in root.findall('.//Annotation'):
-        coords = annotation.find('Coordinates')
-        points = [(int(float(coord.attrib.get("X"))/mag_factor), int(float(coord.attrib.get("Y"))/mag_factor)) for coord in coords.findall('Coordinate')]
-        polygons.append(Polygon(points))
-    print("Coords extracted")
-
-    # Create the mask
-    for y in range(height):
-        for x in range(width):
-            point = Point(x, y)
-            if any(polygon.contains(point) for polygon in polygons):
-                mask[y, x] = 255
-    print("Binary mask created")
-
-    return mask
-
-def save_mask_as_image(mask, output_path):
-    """
-    Save the binary mask as an image file
-    """
-    img = Image.fromarray(mask)
-    img.save(output_path)
-
-# Function to extract and preprocess a patch
-def extract_and_preprocess_patch(slide, coords, level, patch_size=224):
-    x, y = coords
-    patch = slide.read_region((x * patch_size, y * patch_size), level, (patch_size, patch_size)).convert('RGB')
-    
-    transform = transforms.Compose([
-        transforms.Resize(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
-    return transform(patch).unsqueeze(0)
+import h5py
+from tqdm import tqdm
+import openslide
+from PIL import Image
 
 def get_googlenet_model(num_classes=2, pretrained=False):
 
@@ -72,6 +18,7 @@ def get_googlenet_model(num_classes=2, pretrained=False):
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs, num_classes)
     return model
+
 
 # Load your GoogLeNet model
 def load_model(model_path):
@@ -98,54 +45,55 @@ def load_model(model_path):
 
     return model
 
-# Function to make prediction for a single patch
-def predict_patch(model, patch):
+
+# Function to load and preprocess data
+def load_and_preprocess_data(x_path, y_path, batch_size=32):
+    with h5py.File(x_path, 'r') as hf_x, h5py.File(y_path, 'r') as hf_y:
+        x = hf_x['x'][:]
+        y = hf_y['y'][:]
+    
+    transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    
+    dataset = []
+    for img, label in zip(x, y):
+        img_tensor = transform(img)
+        dataset.append((img_tensor, label[0]))
+    
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    return dataloader
+
+def predict_patches(model, dataloader):
+    # Make predictions
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    model.eval()
+
+    predictions = []
+    true_labels = []
+
     with torch.no_grad():
-        output = model(patch)
-        probabilities = torch.softmax(output, dim=1)
-    return probabilities[0, 1].item()
-
-
-def visualize_slide_processing(slide_path, level, tumor_mask, extracted_patches, save_path):
-    # Open the slide
-    slide = openslide.OpenSlide(str(slide_path))
+        for batch, labels in tqdm(dataloader, desc="Making predictions"):
+            batch = batch.to(device)
+            outputs = model(batch)
+            probs = torch.softmax(outputs, dim=1)[:, 1]  # Probability of positive class
+            predictions.extend(probs.cpu().numpy())
+            
+            # Extract scalar values from labels
+            labels = labels.cpu().numpy()
+            true_labels.extend(labels.flatten())  # Flatten to ensure 1D array
     
-    # Read the whole slide image at the specified level
-    wsi_img = slide.read_region((0, 0), level, slide.level_dimensions[level]).convert('RGB')
-    wsi_img = np.array(wsi_img)
+    # Create a DataFrame with results
+    results_df = pd.DataFrame({
+        'truth': true_labels,
+        'prediction': predictions
+    })
 
-    # Ensure tumor_mask has the same dimensions as wsi_img
-    tumor_mask = np.resize(tumor_mask, (wsi_img.shape[0], wsi_img.shape[1]))
-
-    # Create a color mask (red for tumor)
-    color_mask = np.zeros((*tumor_mask.shape, 4), dtype=np.uint8)
-    color_mask[tumor_mask > 0] = [255, 0, 0, 128]  # Red with 50% opacity
-
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(30, 10))
-    
-    # Plot tumor mask
-    ax1.imshow(tumor_mask, cmap='binary')
-    ax1.set_title(f'Tumor Mask')
-    ax1.axis('off')
-    
-    # Plot WSI with overlaid tumor mask and extracted patches
-    ax2.imshow(wsi_img)
-    ax2.imshow(color_mask)
-    for patch in extracted_patches:
-        rect = patches.Rectangle((patch[0], patch[1]), patch[2], patch[3], 
-                                 linewidth=1, edgecolor='blue', facecolor='none')
-        ax2.add_patch(rect)
-    ax2.set_title('WSI with Tumor Mask and Extracted Patches')
-    ax2.axis('off')
-
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.close()
-
-    # Close the slide
-    slide.close()
-
+    return results_df
 
 def compute_and_save_metrics(df, output_dir):
 
@@ -157,23 +105,45 @@ def compute_and_save_metrics(df, output_dir):
     y_pred_proba = df['prediction']
     y_true = df['truth']
 
-
     # Compute ROC curve and AUC
     fpr, tpr, roc_thresholds = roc_curve(y_true, y_pred_proba)
     roc_auc = auc(fpr, tpr)
-
 
     # Compute Precision-Recall curve
     precision, recall, pr_thresholds = precision_recall_curve(y_true, y_pred_proba)
     average_precision = average_precision_score(y_true, y_pred_proba)
 
-    # Find optimal threshold using F1 score
+    # Compute metrics for different thresholds
+    thresholds = np.linspace(0, 1, 100)
+    accuracies = []
+    recalls=[]
+    precisions = []
     f1_scores = []
-    for threshold in pr_thresholds:
-        y_pred = (y_pred_proba >= threshold).astype(int)
-        f1_scores.append(f1_score(y_true, y_pred))
-    optimal_threshold = pr_thresholds[np.argmax(f1_scores)]
 
+    for threshold in thresholds:
+        y_pred = (y_pred_proba >= threshold).astype(int)
+        accuracies.append(accuracy_score(y_true, y_pred))
+        recalls.append(recall_score(y_true, y_pred))
+        precisions.append(precision_score(y_true, y_pred))
+        f1_scores.append(f1_score(y_true, y_pred))
+    
+
+    # Plot precision, accuracy, and F1 score for different thresholds
+    plt.figure(figsize=(10, 8))
+    plt.plot(thresholds, accuracies, label='Accuracy')
+    plt.plot(thresholds, precisions, label='Precision')
+    plt.plot(thresholds, f1_scores, label='F1 Score')
+    plt.xlabel('Threshold')
+    plt.ylabel('Score')
+    plt.title('Precision, Accuracy, and F1 Score vs. Threshold')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(output_dir / 'metrics_vs_threshold.png')
+    plt.close()
+
+    
+
+    optimal_threshold = 0.9
     # Compute metrics using optimal threshold
     y_pred = (y_pred_proba >= optimal_threshold).astype(int)
     cm = confusion_matrix(y_true, y_pred)
@@ -182,7 +152,7 @@ def compute_and_save_metrics(df, output_dir):
     recall_sc = recall_score(y_true, y_pred)
     f1 = f1_score(y_true, y_pred)
 
-    # Save metrics to a text file
+   # Save metrics to a text file
     with open(output_dir / 'metrics.txt', 'w') as f:
         f.write(f"\nOptimal Threshold: {optimal_threshold:.4f}\n\n")
         f.write(f"Confusion Matrix:\n{cm}\n\n")
@@ -206,8 +176,6 @@ def compute_and_save_metrics(df, output_dir):
     plt.savefig(output_dir / 'roc_curve.png')
     plt.close()
 
-    print(f"Metrics and ROC curve saved in {output_dir}")
-
     # Plot and save Precision-Recall curve
     plt.figure(figsize=(10, 8))
     plt.step(recall, precision, color='b', alpha=0.2, where='post')
@@ -222,64 +190,75 @@ def compute_and_save_metrics(df, output_dir):
     
     print(f"Metrics and curves saved in {output_dir}")
 
+def create_heatmap(wsi_path, metadata_path, predictions_df, output_path, level=2, patch_size=96):
+    # Read the WSI
+    wsi = openslide.OpenSlide(wsi_path)
 
-def process_slide(slide_path, annotation_path, model, level, patch_size=224):
-    # Read the WSI at the specified level
-    slide = openslide.OpenSlide(slide_path)
-    slide_dim = slide.level_dimensions[level]
-    print(f"Processing slide: {slide_path}")
-    print(f"Annotation path: {annotation_path}")
-    print(f"Slide dimensions at level {level}: {slide_dim}")
-
-    # Extract patches from the tissue region
-    _, bounding_boxes = ops.extract_tissue(slide, level)
+    # Calculate the downsampling factor
+    downsample = wsi.level_downsamples[level]
     
-    # Get the single bounding box encompassing all tissue regions
-    xmin = min(box[0] for box in bounding_boxes)
-    ymin = min(box[1] for box in bounding_boxes)
-    xmax = max(box[0] + box[2] for box in bounding_boxes)
-    ymax = max(box[1] + box[3] for box in bounding_boxes)
-
-    # Read tumor annotations if they exist
-    if annotation_path.exists():
-        tumor_mask = create_tumor_mask(slide_dim, annotation_path, level)
-    else:
-        tumor_mask = None
-
-    results = []
-    #extracted_patches = []
+    # Read the metadata
+    metadata = pd.read_csv(metadata_path)
     
-    # Extract patches from the single bounding box
-    for x in range(xmin, xmax, patch_size):
-        for y in range(ymin, ymax, patch_size):
-            # Extract and preprocess the patch
-            patch = extract_and_preprocess_patch(slide, (x, y), level, patch_size)
-            
-            # Make prediction
-            prediction = predict_patch(model, patch)
-            
-            # Determine ground truth from the tumor mask
-            if tumor_mask is not None:
-                truth = int(np.any(tumor_mask[y:y+patch_size, x:x+patch_size]))
-            else:
-                truth = 0
-            
-            # Store results
-            results.append({
-                'slide_path': str(slide_path),
-                'tile_loc': f"{x},{y}",
-                'prediction': prediction,
-                'truth': truth
-            })
+    # Get the WSI name from the path
+    wsi_name = wsi_path.stem
+    print(f"WSI name: {wsi_name}")
 
-            #extracted_patches.append((x, y, patch_size, patch_size))
-
-    # Visualize the tumor mask and extracted patches
-    # vis_save_path = Path("D:/CAMELYON16/camelyon_dissertation/results_inference/processing_visualization.png")
-    # if tumor_mask is not None:
-    #     visualize_slide_processing(slide_path, level, tumor_mask, extracted_patches, vis_save_path)
-    #     print(f"Processing visualization saved to: {vis_save_path}")
+    full_name = "camelyon16_" + wsi_name
+    print(full_name)
+    # Filter metadata for the current WSI
+    wsi_metadata = metadata[metadata['wsi'] == full_name]
     
-    # Assuming your DataFrame is named 'final_df'
-    results_df = pd.DataFrame(results)
-    return results_df
+    wsi_metadata.drop(wsi_metadata.columns[0], axis=1)    
+    
+    print(wsi_metadata)
+    
+    print("shape: ",wsi_metadata.shape)
+
+    # Get the dimensions of the WSI at the specified level
+    width, height = wsi.level_dimensions[level]
+    
+    # Create an empty heatmap
+    heatmap = np.zeros((height, width))
+    
+    # Iterate through the patches for this WSI
+    for index, row in wsi_metadata.iterrows():
+        if index in predictions_df.index:
+            x = int(row['coord_x'] / downsample)
+            y = int(row['coord_y'] / downsample)
+            patch_size_level = int(patch_size / downsample)
+            
+            # Get the prediction for this patch
+            prediction = predictions_df.loc[index, 'prediction']
+            
+            # Add the prediction to the heatmap
+            heatmap[y:y+patch_size_level, x:x+patch_size_level] = prediction
+    
+    # Read the WSI image at the specified level
+    wsi_image = wsi.read_region((0, 0), level, (width, height)).convert('RGB')
+    
+    # Create the figure and axes
+    fig, ax = plt.subplots(figsize=(20, 20))
+    
+    # Display the WSI image
+    ax.imshow(wsi_image)
+    
+    # Overlay the heatmap
+    heatmap_overlay = ax.imshow(heatmap, cmap='coolwarm', interpolation='nearest', alpha=0.6)
+    
+    # Add a colorbar
+    plt.colorbar(heatmap_overlay, ax=ax, label='Tumor Probability')
+    
+    # Set the title
+    plt.title(f'Tumor Heatmap for {wsi_name}')
+    
+    # Remove axis ticks
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+    # Save the figure
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"Heatmap saved to {output_path}")
+

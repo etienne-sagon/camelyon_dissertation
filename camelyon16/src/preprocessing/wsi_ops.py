@@ -56,8 +56,10 @@ def extract_tissue(wsi_image, level):
     
     wsi_dims = wsi_image.level_dimensions[level]
     
-    rgb_image = np.array(wsi_image.read_region((0, 0), level, wsi_dims).convert("RGB"))
-
+    wsi_image = wsi_image.read_region((0, 0), level, wsi_dims).convert("RGB")
+    
+    rgb_image = np.array(wsi_image)
+    
     # Convert RGB image to HSV
     hsv_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2HSV)
     
