@@ -10,9 +10,15 @@ from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, r
 import h5py
 from tqdm import tqdm
 import openslide
-from PIL import Image
 
-def get_googlenet_model(num_classes=2, pretrained=False):
+def get_googlenet_model(num_classes=2):
+
+    """
+    Create and return a GoogLeNet model with a custom number of output classes.
+
+    :param num_classes: The number of output classes for the model's final fully connected layer. Defaults to 2, suitable for binary classification.
+    :return: A GoogLeNet model instance with its final fully connected layer modified to output the specified number of classes.
+    """
 
     model = models.googlenet(weights=None, aux_logits=False)
     num_ftrs = model.fc.in_features
@@ -22,6 +28,13 @@ def get_googlenet_model(num_classes=2, pretrained=False):
 
 # Load your GoogLeNet model
 def load_model(model_path):
+    """
+    Load a GoogLeNet model with a custom architecture from a saved state dictionary.
+
+    :param model_path: Path to the saved model state dictionary (a .pth file).
+    
+    :return: The GoogLeNet model loaded with the specified weights, ready for inference.
+    """
 
     DEVICE = torch.device("cpu")
     
@@ -48,6 +61,16 @@ def load_model(model_path):
 
 # Function to load and preprocess data
 def load_and_preprocess_data(x_path, y_path, batch_size=32):
+    """
+    Load image data and labels from HDF5 files, preprocess the images, and create a DataLoader for batch-wise data loading.
+
+    :param x_path: Path to the HDF5 file containing the image data.
+    :param y_path: Path to the HDF5 file containing the labels.
+    :param batch_size: The number of samples per batch in the DataLoader. Defaults to 32.
+    
+    :return: A PyTorch DataLoader object containing the preprocessed image tensors and corresponding labels.
+    """
+
     with h5py.File(x_path, 'r') as hf_x, h5py.File(y_path, 'r') as hf_y:
         x = hf_x['x'][:]
         y = hf_y['y'][:]
@@ -65,9 +88,19 @@ def load_and_preprocess_data(x_path, y_path, batch_size=32):
         dataset.append((img_tensor, label[0]))
     
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
     return dataloader
 
 def predict_patches(model, dataloader):
+    """
+    Use a trained model to make predictions on a dataset of image patches and return the results in a DataFrame.
+
+    :param model: The trained PyTorch model used for making predictions.
+    :param dataloader: A DataLoader object containing the preprocessed image patches and their corresponding labels.
+    
+    :return: A pandas DataFrame containing the true labels and predicted probabilities of the positive class for each image patch.
+    """
+
     # Make predictions
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -96,6 +129,15 @@ def predict_patches(model, dataloader):
     return results_df
 
 def compute_and_save_metrics(df, output_dir):
+    """
+    Compute various classification metrics and save the results, to the specified output directory.
+
+    :param df: A pandas DataFrame containing the true labels and predicted probabilities. It should have two columns: 'truth' (true labels) and 'prediction' (predicted probabilities).
+    :param output_dir: Directory where the metrics and plots will be saved.
+    
+    :return: None
+    """
+
 
     # Ensure output directory exists
     output_dir = Path(output_dir)
@@ -143,7 +185,7 @@ def compute_and_save_metrics(df, output_dir):
 
     
 
-    optimal_threshold = 0.9
+    optimal_threshold = 0.94
     # Compute metrics using optimal threshold
     y_pred = (y_pred_proba >= optimal_threshold).astype(int)
     cm = confusion_matrix(y_true, y_pred)
@@ -191,6 +233,19 @@ def compute_and_save_metrics(df, output_dir):
     print(f"Metrics and curves saved in {output_dir}")
 
 def create_heatmap(wsi_path, metadata_path, predictions_df, output_path, level=2, patch_size=96):
+    """
+    Generate and save a tumor probability heatmap overlaid on a whole-slide image (WSI).
+
+    :param wsi_path: Path to the whole-slide image (WSI) file.
+    :param metadata_path: Path to the CSV file containing metadata with coordinates for patches.
+    :param predictions_df: A DataFrame containing tumor predictions for each patch.
+    :param output_path: Path where the resulting heatmap image will be saved.
+    :param level: The resolution level of the WSI to use for the heatmap. Defaults to 2.
+    :param patch_size: The size of each patch in the original WSI resolution. Defaults to 96.
+    
+    :return: None. The heatmap is saved as an image to the specified output path.
+    """
+
     # Read the WSI
     wsi = openslide.OpenSlide(wsi_path)
 

@@ -10,8 +10,6 @@ import random
 import shutil
 from pathlib import Path
 
-
-
 # Adjust the path to include the 'src' directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
@@ -71,6 +69,14 @@ def plot_losses(train_losses, val_losses):
     print("Loss plot saved")
 
 def train_googlenet_model():
+
+    """
+    Train a GoogLeNet model using image patches, with the ability to monitor 
+    training and validation losses and save the trained model.
+
+    :return: None. The function trains a GoogLeNet model and saves the trained model to a file.
+    """
+    
     train_start_time = time.time()
     # Move patches before loading data
     # move_patches_to_validation(utils.train_normal_patch_path, utils.val_normal_patch_path, 0.10)

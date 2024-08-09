@@ -122,8 +122,6 @@ def extract_normal_patches_from_tumor_wsi(wsi_path, wsi_image, anno_path, boundi
 def extract_tumor_patches_from_tumor_wsi(wsi_path, wsi_image, anno_path, patch_directory, patch_index):
 
     """
-    https://thedeeplearning-intern322.medium.com/extracting-patches-from-whole-slide-images-wsi-c3bb9b00d9b5
-
     Extract patches from tumor regions in a whole slide image (WSI),
     and save them to a directory, including performing data augmentations.
     
