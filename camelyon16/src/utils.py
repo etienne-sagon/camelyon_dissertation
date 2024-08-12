@@ -39,9 +39,8 @@ val_tumor_patch_index = 0
 
 
 model_save_path = "/app/scripts/models/googlenet_test.pth"
-inference_save_path = "/app/scripts/test_metrics/"
-
-
+inference_save_path_test = "/app/scripts/test_metrics/test/"
+inference_save_path_val = "/app/scripts/test_metrics/val/"
 
 mag_level_patch = 0
 mag_level_tissue = 5
@@ -49,6 +48,6 @@ patch_size = 256
 nb_patches_per_box = 10
 
 batch_size = 32
-nb_epochs = 50
+nb_epochs = 30
 
 

@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import random
 import shutil
 from pathlib import Path
+import re
+
 
 # Adjust the path to include the 'src' directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -32,18 +34,29 @@ def move_patches_to_validation(source_dir, dest_dir, percentage=0.1):
     
     # Get all patch files
     patch_files = list(source_dir.glob('*'))
+
+    # Group patches by their base name (slide class, slide ID, and coordinates)
+    patch_groups = {}
+    for file in patch_files:
+        # Extract the base name: everything up to the last underscore
+        base_name = '_'.join(file.stem.split('_')[:-1])
+        patch_groups.setdefault(base_name, []).append(file)
+
     
     # Calculate number of files to move
-    num_to_move = int(len(patch_files) * percentage)
+    num_groups_to_move  = int(len(patch_groups) * percentage)
     
-    # Randomly select files to move
-    files_to_move = random.sample(patch_files, num_to_move)
+    # Randomly select patch groups to move
+    groups_to_move = random.sample(list(patch_groups.keys()), num_groups_to_move)
     
-    # Move selected files
-    for file in files_to_move:
-        shutil.move(str(file), str(dest_dir / file.name))
+    # Move selected patch groups
+    total_moved = 0
+    for group in groups_to_move:
+        for file in patch_groups[group]:
+            shutil.move(str(file), str(dest_dir / file.name))
+            total_moved += 1
     
-    print(f"Moved {num_to_move} patches from {source_dir} to {dest_dir}")
+    print(f"Moved {total_moved} patches ({num_groups_to_move} groups) from {source_dir} to {dest_dir}")
 
 
 def plot_losses(train_losses, val_losses):
@@ -63,7 +76,7 @@ def plot_losses(train_losses, val_losses):
     plt.title('Training and Validation Loss Over Epochs')
     plt.legend()
     plt.grid(True)
-    plt.xticks(epochs)  # Ensure that all epochs are shown on the x-axis
+    #plt.xticks(epochs)  # Ensure that all epochs are shown on the x-axis
     plt.savefig('/app/scripts/models/googlenet_loss_plot.png')  # Save the plot as a PNG file
     plt.show()  # Display the plot
     print("Loss plot saved")
@@ -101,7 +114,7 @@ def train_googlenet_model():
 
     val_loader = DataLoader(val_data, 
                             batch_size=batch_size,
-                            shuffle=False,  # Typically, validation data should not be shuffled
+                            shuffle=True, #set to true 
                             drop_last=False)
 
     # Load model
