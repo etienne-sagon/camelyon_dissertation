@@ -4,7 +4,7 @@
 ### Abstract
 The presence of metastases in lymph nodes is a major determinant of breast cancer diagnosis and treatment. The detection of metastases is usually done manually by an expert pathologist. Computer-assisted diagnosis methods have been developed to automate the detection process and speed up diagnosis. However, most of these methods are computationally intensive and incompatible with a clinical application.  In this paper, a comprehensive pipeline is built to classify patches extracted from Whole Slide Images. The method proposed consists of an extensive preprocessing part, and the use of a pretrained GoogLeNet. The results are insufficient for clinical practice but perspectives for future improvements are given.
 
-Content of the project Directory:
+#### Content of the project Directory:
 
 camelyon16/ :
 
