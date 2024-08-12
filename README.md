@@ -19,8 +19,8 @@ camelyon16/ :
     
   - run_job.sh : sh script to run a job
 
-  - logs/ : includes logs of preprocessing and training
+- logs/ : includes logs of preprocessing and training
 
-  - metrics_test/ : includes the logs from the evaluation on validation and test set
+- metrics_test/ : includes the logs from the evaluation on validation and test set
 
-  - models/ : includes the weights of the GoogLeNet trained
+- models/ : includes the weights of the GoogLeNet trained
